@@ -1,0 +1,34 @@
+- name: Ensure nvm is loaded and npm is available for the user
+  ansible.builtin.shell: |
+    source {{ ansible_user_dir }}/.nvm/nvm.sh
+    which npm
+  args:
+    executable: /bin/bash
+  register: npm_path_check
+  changed_when: false
+  failed_when: npm_path_check.rc != 0
+  become: no
+
+- name: Install pnpm globally using npm
+  ansible.builtin.shell: |
+    source {{ ansible_user_dir }}/.nvm/nvm.sh
+    npm install -g pnpm
+  args:
+    executable: /bin/bash
+    creates: "{{ npm_path_check.stdout | dirname }}/pnpm"
+  changed_when: true
+  become: no
+
+- name: Verify pnpm installation
+  ansible.builtin.command: bash -lc "pnpm --version"
+  register: pnpm_version_check
+  changed_when: false
+  failed_when: pnpm_version_check.rc != 0
+  args:
+    executable: /bin/bash
+  become: no
+
+- name: Display pnpm version
+  ansible.builtin.debug:
+    msg: "pnpm installed version: {{ pnpm_version_check.stdout }}"
+  when: pnpm_version_check.stdout is defined and pnpm_version_check.stdout | length > 0

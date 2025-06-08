@@ -1,0 +1,28 @@
+- name: Ensure .nvm directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.nvm"
+    state: directory
+    mode: '0755'
+  become: no # Ensure this runs as the user
+
+- name: Download and install nvm
+  ansible.builtin.shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+  args:
+    creates: "{{ ansible_user_dir }}/.nvm/nvm.sh" # Ensures nvm is only installed once
+    executable: /bin/bash # Ensure bash is used
+  become: no # Ensure this runs as the user
+
+- name: Load nvm and install Node.js version 18 and set as default
+  ansible.builtin.shell: |
+    source {{ ansible_user_dir }}/.nvm/nvm.sh
+    nvm install 18 # Install Node.js version 18
+    nvm use 18     # Use version 18 for the current shell
+    nvm alias default 18 # Set version 18 as the default for new shells
+  args:
+    executable: /bin/bash # Ensure bash is used to source nvm
+    # Idempotence check: ensures this task only runs if version 18 is not already installed
+    creates: "{{ ansible_user_dir }}/.nvm/versions/node/v18.0.0" # Adjust to a version-specific path, like v18.x.x
+  # Note: The `creates` check might need adjustment if nvm installs a very specific patch version.
+  # A more robust check could be to use `nvm ls 18` and check its output, but this is simpler.
+  become: no # Ensure this runs as the user

@@ -1,0 +1,69 @@
+- name: Ensure ~/.profile sources ~/.bashrc for login shells
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_user_dir }}/.profile"
+    line: |
+      # if running bash
+      if [ -n "$BASH_VERSION" ]; then
+          # include .bashrc if it exists
+          if [ -f "$HOME/.bashrc" ]; then
+              . "$HOME/.bashrc"
+          fi
+      fi
+    regexp: '^if \[ -n "\$BASH_VERSION" \]; then.*if \[ -f "\$HOME/\.bashrc" \]; then\s*\.\s*"\$HOME/\.bashrc"\s*fi\s*fi'
+    state: present
+    create: yes # Create .profile if it doesn't exist
+    insertafter: EOF # Add at the end of the file
+  become: no # Run as the user, modifying their profile
+
+- name: Ensure .foundry directory exists (for idempotence)
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.foundry"
+    state: directory
+    mode: '0755'
+  become: no
+
+- name: Check if Foundry is already installed
+  ansible.builtin.stat:
+    path: "{{ ansible_user_dir }}/.foundry/bin/foundryup"
+  register: foundry_executable_check
+  changed_when: false
+  become: no
+
+- name: Install Foundry (foundryup installer)
+  ansible.builtin.shell: |
+    curl -L https://foundry.paradigm.xyz | bash
+  args:
+    executable: /bin/bash
+  when: not foundry_executable_check.stat.exists
+  environment:
+    HOME: "{{ ansible_user_dir }}"
+  become: no
+
+- name: Ensure Foundry is in PATH in .bashrc if not already present
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_user_dir }}/.bashrc"
+    line: 'export PATH="$HOME/.foundry/bin:$PATH"'
+    regexp: '^export PATH="\$HOME/\.foundry/bin:\$PATH"'
+    state: present
+    insertafter: EOF
+  become: no
+
+- name: Run foundryup to complete installation and update
+  ansible.builtin.command: bash -lc "foundryup"
+  register: foundryup_run_result
+  changed_when: foundryup_run_result.rc == 0 # Assume it changes something if it runs successfully
+  become: no
+
+- name: Verify Foundry installation and version
+  ansible.builtin.command: bash -lc "foundryup --version"
+  register: foundry_version_check
+  changed_when: false
+  failed_when: foundry_version_check.rc != 0
+  args:
+    executable: /bin/bash
+  become: no
+
+- name: Display Foundry version
+  ansible.builtin.debug:
+    msg: "Foundry installed version: {{ foundry_version_check.stdout }}"
+  when: foundry_version_check.stdout is defined and foundry_version_check.stdout | length > 0

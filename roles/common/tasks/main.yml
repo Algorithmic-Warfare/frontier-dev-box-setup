@@ -1,0 +1,17 @@
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600 # Cache for 1 hour
+  become: yes
+
+- name: Upgrade all installed packages
+  ansible.builtin.apt:
+    upgrade: yes
+  become: yes
+
+- name: Install essential packages
+  ansible.builtin.apt:
+    name:
+      - git
+      - curl
+  become: yes

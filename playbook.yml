@@ -1,0 +1,20 @@
+- name: Set up a new Frontier development workstation
+  hosts: localhost
+  gather_facts: yes # Gather facts about the host (useful for conditional logic)
+
+  roles:
+    - role: common
+    - role: nodejs
+    - role: pnpm
+    - role: foundary
+
+  tasks:
+    - name: Inform user about shell refresh
+      ansible.builtin.debug:
+        msg: |
+          IMPORTANT:
+          Please restart your terminal or run the following command:
+
+          source ~/.bashrc
+
+          This will update your PATH environment variable.
