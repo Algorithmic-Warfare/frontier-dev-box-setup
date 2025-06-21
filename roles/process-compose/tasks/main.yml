@@ -1,0 +1,49 @@
+- name: Get latest process-compose release info
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/F1bonacc1/process-compose/releases/latest"
+    return_content: yes
+  register: pc_release
+  become: no
+
+- name: Set architecture mapping
+  ansible.builtin.set_fact:
+    arch_map:
+      x86_64: amd64
+      aarch64: arm64
+      armv7l: arm
+    os_name: "linux"
+  become: no
+
+- name: Set target architecture
+  ansible.builtin.set_fact:
+    target_arch: "{{ arch_map[ansible_architecture] | default(ansible_architecture) }}"
+  become: no
+
+- name: Find correct asset URL for architecture
+  ansible.builtin.set_fact:
+    pc_asset_url: "{{ item.browser_download_url }}"
+  loop: "{{ pc_release.json.assets }}"
+  when: item.name is search('process-compose_' + os_name + '_' + target_arch)
+  become: no
+
+- name: Download and install process-compose
+  ansible.builtin.get_url:
+    url: "{{ pc_asset_url }}"
+    dest: /usr/local/bin/process-compose
+    mode: "0755"
+    owner: root
+    group: root
+  become: yes
+  when: pc_asset_url is defined
+
+- name: Verify process-compose installation
+  ansible.builtin.command: process-compose version
+  register: pc_version
+  changed_when: false
+  failed_when: pc_version.rc != 0
+  become: no
+
+- name: Display process-compose version
+  ansible.builtin.debug:
+    msg: "process-compose installed version: {{ pc_version.stdout }}"
+  when: pc_version.stdout is defined and pc_version.stdout | length > 0

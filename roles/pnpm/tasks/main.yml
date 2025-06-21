@@ -15,17 +15,19 @@
     npm install -g pnpm
   args:
     executable: /bin/bash
-    creates: "{{ npm_path_check.stdout | dirname }}/pnpm"
+    creates: "{{ (npm_path_check.stdout | trim) | dirname }}/pnpm"
   changed_when: true
   become: no
 
 - name: Verify pnpm installation
-  ansible.builtin.command: bash -lc "pnpm --version"
+  ansible.builtin.shell: |
+    source {{ ansible_user_dir }}/.nvm/nvm.sh
+    pnpm --version
+  args:
+    executable: /bin/bash
   register: pnpm_version_check
   changed_when: false
   failed_when: pnpm_version_check.rc != 0
-  args:
-    executable: /bin/bash
   become: no
 
 - name: Display pnpm version

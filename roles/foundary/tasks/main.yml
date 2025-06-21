@@ -19,7 +19,7 @@
   ansible.builtin.file:
     path: "{{ ansible_user_dir }}/.foundry"
     state: directory
-    mode: '0755'
+    mode: "0755"
   become: no
 
 - name: Check if Foundry is already installed
@@ -48,11 +48,29 @@
     insertafter: EOF
   become: no
 
+- name: Check for running Foundry processes
+  ansible.builtin.command: pgrep -f "[f]orge|[a]nvil|[c]ast|[c]hisel"
+  register: foundry_process_check
+  # This is the key change:
+  failed_when: foundry_process_check.rc > 1
+  changed_when: false
+  become: no
+
+- name: Stop Foundry processes if running
+  ansible.builtin.command: pkill -f "[f]orge|[a]nvil|[c]ast|[c]hisel"
+  when: foundry_process_check.rc == 0
+  register: stop_processes
+  changed_when: "stop_processes.rc == 0"
+  retries: 3
+  delay: 2
+  become: no
+
 - name: Run foundryup to complete installation and update
   ansible.builtin.command: bash -lc "foundryup"
   register: foundryup_run_result
   changed_when: foundryup_run_result.rc == 0 # Assume it changes something if it runs successfully
   become: no
+  when: foundry_process_check.rc != 0 or stop_processes is defined
 
 - name: Verify Foundry installation and version
   ansible.builtin.command: bash -lc "foundryup --version"
