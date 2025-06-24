@@ -23,18 +23,58 @@
   ansible.builtin.set_fact:
     pc_asset_url: "{{ item.browser_download_url }}"
   loop: "{{ pc_release.json.assets }}"
-  when: item.name is search('process-compose_' + os_name + '_' + target_arch)
+  when: item.name is search('process-compose_' + os_name + '_' + target_arch + '.tar.gz')
   become: no
 
-- name: Download and install process-compose
+- name: Create temp directory for process-compose
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: pc_install
+  register: pc_tempdir
+  become: yes
+
+- name: Download process-compose archive
   ansible.builtin.get_url:
     url: "{{ pc_asset_url }}"
-    dest: /usr/local/bin/process-compose
-    mode: "0755"
+    dest: "{{ pc_tempdir.path }}/process-compose.tar.gz"
+    mode: "0644"
+  become: yes
+
+- name: Extract process-compose binary
+  ansible.builtin.unarchive:
+    src: "{{ pc_tempdir.path }}/process-compose.tar.gz"
+    dest: "{{ pc_tempdir.path }}"
+    remote_src: yes
+  become: yes
+
+- name: List files after extraction
+  ansible.builtin.command: ls -R "{{ pc_tempdir.path }}"
+  register: extracted_files
+  changed_when: false
+  become: yes
+
+- name: Show contents of temp dir
+  ansible.builtin.debug:
+    var: extracted_files.stdout_lines
+
+- name: Move process-compose binary to /usr/local/bin
+  ansible.builtin.command: >
+    mv "{{ pc_tempdir.path }}/process-compose" /usr/local/bin/process-compose
+  become: yes
+
+- name: Set executable permissions on process-compose
+  ansible.builtin.file:
+    path: /usr/local/bin/process-compose
+    mode: '0755'
     owner: root
     group: root
   become: yes
-  when: pc_asset_url is defined
+
+- name: Remove temp directory
+  ansible.builtin.file:
+    path: "{{ pc_tempdir.path }}"
+    state: absent
+  become: yes
 
 - name: Verify process-compose installation
   ansible.builtin.command: process-compose version
@@ -47,3 +87,4 @@
   ansible.builtin.debug:
     msg: "process-compose installed version: {{ pc_version.stdout }}"
   when: pc_version.stdout is defined and pc_version.stdout | length > 0
+
