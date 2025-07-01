@@ -7,7 +7,7 @@
     - role: docker
     - role: nodejs
     - role: pnpm
-    - role: process-compose
+    # - role: process-compose
     - role: foundary
 
   tasks:
